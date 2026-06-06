@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartOps | AI-Powered IT Operations & CapEx Forecasting Dashboard</title>
+  <meta name="description" content="Integrate operations data across Freshdesk, Zoho Books, and Slack. Detect SLA breaches, forecast IT asset budgets, and dispatch tickets intelligently.">
+  
+  <!-- Tailwind is avoided as per core instructions. Using Vanilla CSS custom styles -->
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- Google Fonts & Chart.js for visualizations -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <!-- Lucide Icons for premium visual icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+  <!-- Navigation Sidebar -->
+  <aside class="sidebar">
+    <div class="logo-container">
+      <div class="logo-icon">
+        <i data-lucide="activity" style="color: #ffffff;"></i>
+      </div>
+      <span class="logo-text">SMARTOPS</span>
+    </div>
+    
+    <nav aria-label="Main Navigation">
+      <ul class="nav-links">
+        <li class="nav-item active" id="nav-dashboard">
+          <button onclick="switchTab('dashboard')" aria-controls="pane-dashboard" aria-selected="true" id="btn-tab-dashboard">
+            <i data-lucide="layout-dashboard"></i> Overview
+          </button>
+        </li>
+        <li class="nav-item" id="nav-sla">
+          <button onclick="switchTab('sla')" aria-controls="pane-sla" aria-selected="false" id="btn-tab-sla">
+            <i data-lucide="shield-alert"></i> SLA Monitor
+          </button>
+        </li>
+        <li class="nav-item" id="nav-procurement">
+          <button onclick="switchTab('procurement')" aria-controls="pane-procurement" aria-selected="false" id="btn-tab-procurement">
+            <i data-lucide="trending-up"></i> CapEx Forecaster
+          </button>
+        </li>
+        <li class="nav-item" id="nav-dispatcher">
+          <button onclick="switchTab('dispatcher')" aria-controls="pane-dispatcher" aria-selected="false" id="btn-tab-dispatcher">
+            <i data-lucide="cpu"></i> Ticket Dispatcher
+          </button>
+        </li>
+        <li class="nav-item" id="nav-integrations">
+          <button onclick="switchTab('integrations')" aria-controls="pane-integrations" aria-selected="false" id="btn-tab-integrations">
+            <i data-lucide="cable"></i> Integrations
+          </button>
+        </li>
+      </ul>
+    </nav>
+    
+    <div class="sidebar-footer">
+      <div class="status-badge">
+        <div class="status-indicator"></div>
+        <span>Operations Engine Active</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <div class="main-wrapper">
+    <header>
+      <div class="header-title">
+        <h1 id="page-title-display">Operations Dashboard</h1>
+        <p id="page-subtitle-display">Real-time indicators across connected SaaS pipelines.</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn-secondary" onclick="resetMockData()" id="btn-reset-data">
+          <i data-lucide="refresh-cw"></i> Reset Simulation Data
+        </button>
+        <button class="btn-primary" onclick="simulateNewTicket()" id="btn-simulate-ticket">
+          <i data-lucide="plus-circle"></i> Ingest Live Ticket
+        </button>
+      </div>
+    </header>
+
+    <!-- Global KPI Metrics Row -->
+    <section class="metrics-row" aria-label="Key Performance Indicators">
+      <div class="metric-card" id="card-active-tickets">
+        <div class="metric-header">
+          <span class="metric-title">Active Support Tickets</span>
+          <div class="metric-icon-wrap indigo">
+            <i data-lucide="ticket"></i>
+          </div>
+        </div>
+        <div class="metric-value" id="kpi-active-tickets">0</div>
+        <div class="metric-trend text-muted">
+          <span>Freshdesk active backlog</span>
+        </div>
+      </div>
+
+      <div class="metric-card" id="card-sla-breaches">
+        <div class="metric-header">
+          <span class="metric-title">SLA Breach Anomaly Rate</span>
+          <div class="metric-icon-wrap rose">
+            <i data-lucide="alert-triangle"></i>
+          </div>
+        </div>
+        <div class="metric-value" id="kpi-sla-breach-rate">0%</div>
+        <div class="metric-trend trend-up" id="kpi-sla-trend">
+          <i data-lucide="arrow-up-right"></i> <span id="kpi-sla-breach-count">0</span> audited breaches
+        </div>
+      </div>
+
+      <div class="metric-card" id="card-forecasted-capex">
+        <div class="metric-header">
+          <span class="metric-title">Projected 12m CapEx</span>
+          <div class="metric-icon-wrap emerald">
+            <i data-lucide="banknote"></i>
+          </div>
+        </div>
+        <div class="metric-value" id="kpi-forecasted-capex">$0</div>
+        <div class="metric-trend trend-down" id="kpi-capex-trend">
+          <span>Zoho procurement POs</span>
+        </div>
+      </div>
+
+      <div class="metric-card" id="card-engineer-load">
+        <div class="metric-header">
+          <span class="metric-title">Avg Engineer Load</span>
+          <div class="metric-icon-wrap cyan">
+            <i data-lucide="users"></i>
+          </div>
+        </div>
+        <div class="metric-value" id="kpi-engineer-load">0.0</div>
+        <div class="metric-trend text-muted">
+          <span>Resource allocation index</span>
+        </div>
+      </div>
+    </section>
+
+    <main class="content-area">
+      
+      <!-- TAB 1: DASHBOARD OVERVIEW -->
+      <section class="tab-pane active" id="pane-dashboard" role="tabpanel" aria-labelledby="btn-tab-dashboard">
+        <div class="dashboard-grid">
+          <!-- Left Column: Forecast Chart & Active Tickets Summary -->
+          <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <div class="panel-card">
+              <div class="panel-header">
+                <div class="panel-title">
+                  <h2>CapEx Budget Forecast (Next 12 Months)</h2>
+                  <p>Estimated asset replacement cost projections generated from lifespans and ticket frequencies.</p>
+                </div>
+              </div>
+              <div class="chart-wrapper">
+                <canvas id="overviewBudgetChart"></canvas>
+              </div>
+            </div>
+            
+            <div class="panel-card">
+              <div class="panel-header">
+                <div class="panel-title">
+                  <h2>Operational Anomalies & Warnings</h2>
+                  <p>Active warnings flagged across SLA logs and CapEx thresholds.</p>
+                </div>
+              </div>
+              <div class="alert-list" id="dashboard-anomalies-list">
+                <!-- Dynamically filled with warning feeds -->
+              </div>
+            </div>
+          </div>
+          
+          <!-- Right Column: Connections Status & Action Panel -->
+          <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <div class="panel-card">
+              <div class="panel-header">
+                <div class="panel-title">
+                  <h2>Integration Pipes</h2>
+                  <p>Status of API connectors and integrations.</p>
+                </div>
+              </div>
+              <div class="alert-list" style="gap: 0.5rem;">
+                <div class="alert-item" style="border-left: 4px solid var(--color-success); padding: 0.75rem;">
+                  <div class="alert-meta"><span>Freshdesk API Integration</span><span class="badge compliant">Connected</span></div>
+                  <div class="alert-subject" style="margin-top: 0.25rem;">Ticketing Data Sync</div>
+                </div>
+                <div class="alert-item" style="border-left: 4px solid var(--color-success); padding: 0.75rem;">
+                  <div class="alert-meta"><span>Zoho Books & CRM</span><span class="badge compliant">Connected</span></div>
+                  <div class="alert-subject" style="margin-top: 0.25rem;">Contracts & Purchase Orders</div>
+                </div>
+                <div class="alert-item" style="border-left: 4px solid var(--color-success); padding: 0.75rem;">
+                  <div class="alert-meta"><span>Slack Webhook</span><span class="badge compliant">Connected</span></div>
+                  <div class="alert-subject" style="margin-top: 0.25rem;">Incident Dispatching Alert</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel-card">
+              <div class="panel-header">
+                <div class="panel-title">
+                  <h2>Simulation Playbook</h2>
+                  <p>Trigger test scenarios to evaluate engine capabilities.</p>
+                </div>
+              </div>
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label>Scenario Action</label>
+                <div class="sim-actions-grid" style="flex-direction: column; margin-top: 0.5rem; gap: 0.75rem;">
+                  <button class="btn-secondary" onclick="triggerLaptopTicketSpike()" style="width: 100%; justify-content: center;" id="btn-trigger-spike">
+                    <i data-lucide="flame"></i> Spike Laptop Ticket Rates (30%)
+                  </button>
+                  <button class="btn-secondary" onclick="simulateSlaBreachTicket()" style="width: 100%; justify-content: center;" id="btn-trigger-breach">
+                    <i data-lucide="clock"></i> Add SLA Breaching Ticket
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: SLA MONITOR (Module 1) -->
+      <section class="tab-pane" id="pane-sla" role="tabpanel" aria-labelledby="btn-tab-sla">
+        <div class="sla-grid">
+          <!-- Left Column: Tickets SLA compliance auditing -->
+          <div class="panel-card" style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <div class="panel-header">
+              <div class="panel-title">
+                <h2>Freshdesk / Zoho SLA Auditor</h2>
+                <p>Cross-references ticket resolution times against active vendor contract agreements.</p>
+              </div>
+            </div>
+            
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Ticket ID</th>
+                    <th>Subject</th>
+                    <th>Severity</th>
+                    <th>Vendor Contract</th>
+                    <th>Actual Hrs</th>
+                    <th>SLA Target</th>
+                    <th>SLA Status</th>
+                  </tr>
+                </thead>
+                <tbody id="sla-audit-table-body">
+                  <!-- Rendered dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          <!-- Right Column: Simulated Background Agent Scheduler logs -->
+          <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <div class="panel-card">
+              <div class="panel-header">
+                <div class="panel-title">
+                  <h2>Nightly SLA Compliance Crawler</h2>
+                  <p>Simulates the AntiGravity background agent running every evening to ingest logs and flag anomalies.</p>
+                </div>
+              </div>
+              <button class="btn-primary" onclick="triggerNightlyAudit()" style="width: 100%; margin-bottom: 1rem;" id="btn-run-audit">
+                <i data-lucide="play"></i> Execute Auditor Agent Sync
+              </button>
+              <div class="terminal-console" id="sla-terminal-console">
+                <div class="terminal-line system">[SYSTEM] SLA Audit Engine initialized. Ready to execute sync...</div>
+              </div>
+            </div>
+
+            <div class="panel-card">
+              <div class="panel-header">
+                <div class="panel-title">
+                  <h2>Active Zoho SLA Contracts</h2>
+                  <p>Coverage limits defined in Zoho Books contracts database.</p>
+                </div>
+              </div>
+              <div class="table-container">
+                <table style="font-size: 0.8rem;">
+                  <thead>
+                    <tr>
+                      <th>Contract</th>
+                      <th>Vendor</th>
+                      <th>Coverage</th>
+                      <th>Crit SLA</th>
+                    </tr>
+                  </thead>
+                  <tbody id="contracts-table-body">
+                    <!-- Rendered dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: CAPEX FORECASTER (Module 2) -->
+      <section class="tab-pane" id="pane-procurement" role="tabpanel" aria-labelledby="btn-tab-procurement">
+        <div class="procurement-layout">
+          <!-- Top Row: Forecasting Chart & Lifespan Adjuster -->
+          <div class="budget-chart-section">
+            <div class="panel-card">
+              <div class="panel-header">
+                <div class="panel-title">
+                  <h2>12-Month Projected CapEx Budget</h2>
+                  <p>Forecasted capital expenditure requirements for hardware EOL and urgent performance replacements.</p>
+                </div>
+              </div>
+              <div class="chart-wrapper" style="height: 300px;">
+                <canvas id="procurementBudgetChart"></canvas>
+              </div>
+            </div>
+
+            <div class="panel-card">
+              <div class="panel-header">
+                <div class="panel-title">
+                  <h2>Replacement Settings</h2>
+                  <p>Configure lifecycle spans (months) to recalculate capital forecasts.</p>
+                </div>
+              </div>
+              <div class="conn-form">
+                <div class="form-group">
+                  <label for="input-lifespan-laptop">Laptops EOL Threshold (Months)</label>
+                  <input type="number" id="input-lifespan-laptop" value="36" min="12" max="60" onchange="updateLifespanSettings()">
+                </div>
+                <div class="form-group">
+                  <label for="input-lifespan-server">Servers EOL Threshold (Months)</label>
+                  <input type="number" id="input-lifespan-server" value="60" min="24" max="120" onchange="updateLifespanSettings()">
+                </div>
+                <div class="form-group">
+                  <label for="input-lifespan-switch">Switches EOL Threshold (Months)</label>
+                  <input type="number" id="input-lifespan-switch" value="60" min="24" max="120" onchange="updateLifespanSettings()">
+                </div>
+                <div class="alert-item warning" style="margin-top: 0.5rem; padding: 0.75rem;">
+                  <div class="alert-desc" style="font-size: 0.75rem;">
+                    Support ticket spike threshold is locked at <strong>&gt;30%</strong> quarter-over-quarter.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Row: EOL Assets Grid -->
+          <div class="panel-card">
+            <div class="panel-header">
+              <div class="panel-title">
+                <h2>Asset Lifecycle Status (Zoho Books Inventory)</h2>
+                <p>Detailed overview of hardware status, age in months, and current Quarter-over-Quarter support ticket spikes.</p>
+              </div>
+            </div>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Asset Tag</th>
+                    <th>Category</th>
+                    <th>Model</th>
+                    <th>Age</th>
+                    <th>QoQ Ticket Spike</th>
+                    <th>Warranty Expiry</th>
+                    <th>Est Replacement</th>
+                    <th>Forecast Status</th>
+                  </tr>
+                </thead>
+                <tbody id="assets-table-body">
+                  <!-- Rendered dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: TICKET DISPATCHER (Module 3) -->
+      <section class="tab-pane" id="pane-dispatcher" role="tabpanel" aria-labelledby="btn-tab-dispatcher">
+        <div class="dispatcher-layout">
+          <!-- Left Column: Incoming Unassigned Tickets Inbox -->
+          <div class="panel-card" style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <div class="panel-header">
+              <div class="panel-title">
+                <h2>Incoming Tickets Queue</h2>
+                <p>Open tickets awaiting dispatcher assignment.</p>
+              </div>
+            </div>
+            <div class="tickets-inbox" id="dispatcher-tickets-inbox">
+              <!-- Rendered dynamically -->
+            </div>
+            
+            <div class="panel-header" style="margin-top: 1rem; border-top: 1px solid var(--glass-border); padding-top: 1.5rem; margin-bottom: 0;">
+              <div class="panel-title">
+                <h2>Simulate Customer Ticket</h2>
+                <p>Create a custom ticket description to test semantic routing.</p>
+              </div>
+            </div>
+            
+            <form class="conn-form" id="form-custom-ticket" onsubmit="handleCustomTicketSubmit(event)">
+              <div class="form-group">
+                <label for="input-ticket-subject">Subject</label>
+                <input type="text" id="input-ticket-subject" placeholder="e.g. Postgres DB replicas are out of sync" required>
+              </div>
+              <div class="form-group">
+                <label for="input-ticket-desc">Description</label>
+                <input type="text" id="input-ticket-desc" placeholder="Provide full details here..." required>
+              </div>
+              <div class="form-group">
+                <label for="input-ticket-severity">Severity</label>
+                <input type="text" id="input-ticket-severity" placeholder="Critical, High, Medium, Low" value="Medium" required style="text-transform: capitalize;">
+              </div>
+              <button class="btn-primary" type="submit" style="justify-content: center;" id="btn-submit-ticket-form">
+                <i data-lucide="plus"></i> Inject Custom Ticket
+              </button>
+            </form>
+          </div>
+
+          <!-- Right Column: Dispatcher Recommendations -->
+          <div class="recommendations-section">
+            <div class="panel-card">
+              <div class="panel-header">
+                <div class="panel-title">
+                  <h2>Resource Routing Recommendation</h2>
+                  <p>Semantic analysis results and engineered recommendations based on past resolutions and current load.</p>
+                </div>
+                <div>
+                  <span class="badge" id="dispatcher-selected-category-badge" style="display: none;">DATABASE</span>
+                </div>
+              </div>
+              
+              <div class="rec-ticket-details" id="dispatcher-selected-ticket-details">
+                <p style="color: var(--text-secondary); text-align: center; padding: 2rem 0;">Select a ticket from the queue to view engineering recommendations.</p>
+              </div>
+              
+              <div id="dispatcher-recommendations-list-container" style="display: none; margin-top: 1.5rem;">
+                <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 1rem; color: var(--text-secondary);">Ranked Resource Matches</h3>
+                <div class="rec-candidates" id="dispatcher-candidates-list">
+                  <!-- Rendered dynamically -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: INTEGRATIONS -->
+      <section class="tab-pane" id="pane-integrations" role="tabpanel" aria-labelledby="btn-tab-integrations">
+        <div class="connections-grid">
+          <!-- Freshdesk Integration -->
+          <div class="connection-card">
+            <div class="conn-header">
+              <div class="conn-title">
+                <i data-lucide="ticket" style="color: var(--color-primary);"></i>
+                <span>Freshdesk Support API</span>
+              </div>
+              <div class="conn-status connected" id="status-freshdesk">
+                <div class="status-indicator"></div>
+                <span>Connected</span>
+              </div>
+            </div>
+            <p style="font-size: 0.825rem; color: var(--text-secondary);">Syncs incident logs, resolution times, severity configurations, and engineer schedules.</p>
+            <div class="conn-form">
+              <div class="form-group">
+                <label for="input-fd-domain">Freshdesk Domain URL</label>
+                <input type="text" id="input-fd-domain" value="https://smartops.freshdesk.com" disabled>
+              </div>
+              <div class="form-group">
+                <label for="input-fd-key">API Credentials Key</label>
+                <input type="password" id="input-fd-key" value="••••••••••••••••••••••••" disabled>
+              </div>
+            </div>
+          </div>
+
+          <!-- Zoho CRM / Books Integration -->
+          <div class="connection-card">
+            <div class="conn-header">
+              <div class="conn-title">
+                <i data-lucide="package" style="color: var(--color-secondary);"></i>
+                <span>Zoho Books & CRM</span>
+              </div>
+              <div class="conn-status connected" id="status-zoho">
+                <div class="status-indicator"></div>
+                <span>Connected</span>
+              </div>
+            </div>
+            <p style="font-size: 0.825rem; color: var(--text-secondary);">Pulls contract SLAs, depreciation curves, warranty expiration boundaries, and original cost lists.</p>
+            <div class="conn-form">
+              <div class="form-group">
+                <label for="input-zoho-client">Zoho Client ID</label>
+                <input type="text" id="input-zoho-client" value="ZO-88329-SMARTOPS" disabled>
+              </div>
+              <div class="form-group">
+                <label for="input-zoho-secret">Client Secret Token</label>
+                <input type="password" id="input-zoho-secret" value="••••••••••••••••••••••••" disabled>
+              </div>
+            </div>
+          </div>
+
+          <!-- Slack Integration -->
+          <div class="connection-card">
+            <div class="conn-header">
+              <div class="conn-title">
+                <i data-lucide="slack" style="color: var(--color-warning);"></i>
+                <span>Slack Alerts Hook</span>
+              </div>
+              <div class="conn-status connected" id="status-slack">
+                <div class="status-indicator"></div>
+                <span>Connected</span>
+              </div>
+            </div>
+            <p style="font-size: 0.825rem; color: var(--text-secondary);">Dispatches instant channels notifications for critical ticket assignments or detected SLA breach anomalies.</p>
+            <div class="conn-form">
+              <div class="form-group">
+                <label for="input-slack-webhook">Slack Webhook URL</label>
+                <input type="text" id="input-slack-webhook" value="https://hooks.slack.com/services/T00/B00/X831" disabled>
+              </div>
+              <div class="form-group">
+                <label for="input-slack-channel">Notification Channel</label>
+                <input type="text" id="input-slack-channel" value="#ops-alerts" disabled>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <footer>
+      <p>&copy; 2026 SmartOps Operations. Enabled via AntiGravity 2.0 Agent Integrations.</p>
+    </footer>
+  </div>
+
+  <!-- Application Logic Scripts -->
+  <script src="mockData.js"></script>
+  <script src="slaMonitor.js"></script>
+  <script src="procurement.js"></script>
+  <script src="dispatcher.js"></script>
+  <script src="app.js"></script>
+
+</body>
+</html>
