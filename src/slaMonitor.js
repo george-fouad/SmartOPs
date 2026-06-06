@@ -1,5 +1,4 @@
-// SLA & Vendor Compliance Monitor (Module 1)
-// Cross-references tickets (Freshdesk/Jira) against Zoho contracts
+// SLA & Vendor Compliance Monitor (Module 1) - ES Module Version
 
 /**
  * Calculates the resolution time of a ticket in hours.
@@ -124,11 +123,9 @@ function runNightlySlaSync(tickets, assets, contracts) {
   };
 }
 
-if (typeof module !== "undefined" && module.exports) {
-  module.exports = {
-    calculateResolutionTime,
-    getSlaTarget,
-    analyzeTicketSla,
-    runNightlySlaSync
-  };
-}
+export {
+  calculateResolutionTime,
+  getSlaTarget,
+  analyzeTicketSla,
+  runNightlySlaSync
+};

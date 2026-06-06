@@ -1,18 +1,23 @@
-// Express Proxy Server for SmartOps SaaS Integrations
-const express = require('express');
-const cors = require('cors');
-const axios = require('axios');
-const path = require('path');
+// Express Proxy Server for SmartOps SaaS Integrations (ES Modules Version)
+import express from 'express';
+import cors from 'cors';
+import axios from 'axios';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Set up __dirname equivalent in ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-// Serve static dashboard files from the workspace directory
-app.use(express.static(__dirname));
+// Serve static compiled dashboard files from Vite build folder (dist)
+app.use(express.static(path.join(__dirname, 'dist')));
 
 /**
  * Helper to classify ticket categories based on text description
@@ -130,7 +135,6 @@ app.post('/api/freshdesk/tickets', async (req, res) => {
   } catch (err) {
     console.error("[Proxy Error] Freshdesk API request failed:", err.message);
     
-    // Send clean error details to client
     const status = err.response ? err.response.status : 500;
     const message = err.response && err.response.data && err.response.data.message 
       ? err.response.data.message 
@@ -168,7 +172,7 @@ app.post('/api/slack/notify', async (req, res) => {
 
 // Fallback all other GET routes to index.html (SPA support)
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 // Start listening with port retry logic in case of EADDRINUSE
@@ -176,7 +180,7 @@ function startServer(port) {
   const server = app.listen(port, () => {
     console.log(`===================================================`);
     console.log(`🚀 SmartOps Local Server running at http://localhost:${port}`);
-    console.log(`📁 Serving frontend folder: ${__dirname}`);
+    console.log(`📁 Serving frontend folder: ${path.join(__dirname, 'dist')}`);
     console.log(`===================================================`);
   });
 

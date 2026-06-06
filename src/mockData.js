@@ -1,5 +1,4 @@
-// Mock Data for Smart Operations (SmartOps)
-// Simulates live datasets from Freshdesk, Zoho Books/CRM, and Slack
+// Mock Data for Smart Operations (SmartOps) - ES Module Version
 
 const MOCK_CONTRACTS = [
   {
@@ -87,7 +86,7 @@ const MOCK_ENGINEERS = [
   {
     id: "ENG-01",
     name: "Sarah Connor",
-    specialty: "Database", // handles database issues fast
+    specialty: "Database",
     activeLoad: 2,
     historicalPerformance: {
       Database: { avgHours: 1.5, escalationRate: 0.05 },
@@ -100,7 +99,7 @@ const MOCK_ENGINEERS = [
   {
     id: "ENG-02",
     name: "John Doe",
-    specialty: "Hardware", // handles hardware & laptop issues fast
+    specialty: "Hardware",
     activeLoad: 1,
     historicalPerformance: {
       Database: { avgHours: 5.0, escalationRate: 0.25 },
@@ -113,7 +112,7 @@ const MOCK_ENGINEERS = [
   {
     id: "ENG-03",
     name: "Alan Turing",
-    specialty: "Security", // handles security & SSL issues fast
+    specialty: "Security",
     activeLoad: 3,
     historicalPerformance: {
       Database: { avgHours: 2.0, escalationRate: 0.08 },
@@ -126,7 +125,7 @@ const MOCK_ENGINEERS = [
   {
     id: "ENG-04",
     name: "Grace Hopper",
-    specialty: "Software", // handles software bugs/deployments fast
+    specialty: "Software",
     activeLoad: 0,
     historicalPerformance: {
       Database: { avgHours: 2.2, escalationRate: 0.09 },
@@ -139,7 +138,7 @@ const MOCK_ENGINEERS = [
   {
     id: "ENG-05",
     name: "Linus Torvalds",
-    specialty: "Networking", // handles switches/servers/linux kernels fast
+    specialty: "Networking",
     activeLoad: 4,
     historicalPerformance: {
       Database: { avgHours: 3.0, escalationRate: 0.15 },
@@ -151,10 +150,6 @@ const MOCK_ENGINEERS = [
   }
 ];
 
-// Seed ticket history.
-// We will generate ticket history for the past 6 months to analyze ticket frequencies.
-// Let's also include some SLA violations:
-// E.g., Server asset going down and taking 5.2 hours to resolve (exceeding 4-hour SLA by 30%)
 const MOCK_TICKETS = [
   // Resolved Tickets (Past 6 Months)
   {
@@ -167,7 +162,7 @@ const MOCK_TICKETS = [
     status: "Resolved",
     engineerId: "ENG-01",
     createdAt: "2026-05-15T08:00:00Z",
-    resolvedAt: "2026-05-15T09:45:00Z", // 1.75 hours (SLA = 4h. OK!)
+    resolvedAt: "2026-05-15T09:45:00Z",
     escalations: 0
   },
   {
@@ -180,7 +175,7 @@ const MOCK_TICKETS = [
     status: "Resolved",
     engineerId: "ENG-05",
     createdAt: "2026-05-18T10:15:00Z",
-    resolvedAt: "2026-05-18T16:30:00Z", // 6.25 hours (SLA = 6h. Exceeded by 4.16% - not flagged as breach (>10% threshold))
+    resolvedAt: "2026-05-18T16:30:00Z",
     escalations: 0
   },
   {
@@ -193,7 +188,7 @@ const MOCK_TICKETS = [
     status: "Resolved",
     engineerId: "ENG-02",
     createdAt: "2026-05-20T14:00:00Z",
-    resolvedAt: "2026-05-20T18:48:00Z", // 4.8 hours (SLA = 4h. Exceeded by 20% - BREACH FLAGGED!)
+    resolvedAt: "2026-05-20T18:48:00Z",
     escalations: 1
   },
   {
@@ -206,7 +201,7 @@ const MOCK_TICKETS = [
     status: "Resolved",
     engineerId: "ENG-03",
     createdAt: "2026-05-22T22:00:00Z",
-    resolvedAt: "2026-05-23T05:30:00Z", // 7.5 hours (SLA = 6h. Exceeded by 25% - BREACH FLAGGED!)
+    resolvedAt: "2026-05-23T05:30:00Z",
     escalations: 1
   },
   {
@@ -219,13 +214,9 @@ const MOCK_TICKETS = [
     status: "Resolved",
     engineerId: "ENG-02",
     createdAt: "2026-04-10T09:00:00Z",
-    resolvedAt: "2026-04-10T14:30:00Z", // 5.5 hours (SLA = 48h. OK!)
+    resolvedAt: "2026-04-10T14:30:00Z",
     escalations: 0
   },
-  // Ticket spikes for Batch A laptops (ThinkPad T14 Gen 2, tags LAP-101 to LAP-108)
-  // Let's populate ticket logs for the past quarters:
-  // Q1 (Jan-Mar 2026): ~2 tickets
-  // Q2 (Apr-Jun 2026): ~8 tickets (massive support spike!)
   {
     id: "FD-410",
     subject: "ThinkPad T14 battery bloated",
@@ -369,12 +360,10 @@ const MOCK_TICKETS = [
   }
 ];
 
-if (typeof module !== "undefined" && module.exports) {
-  module.exports = {
-    MOCK_CONTRACTS,
-    MOCK_ASSETS,
-    MOCK_ENGINEERS,
-    MOCK_TICKETS,
-    getRelativeDate
-  };
-}
+export {
+  MOCK_CONTRACTS,
+  MOCK_ASSETS,
+  MOCK_ENGINEERS,
+  MOCK_TICKETS,
+  getRelativeDate
+};

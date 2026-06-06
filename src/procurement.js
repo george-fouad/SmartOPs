@@ -1,5 +1,4 @@
-// Predictive Procurement & CapEx Forecaster (Module 2)
-// Analyzes asset lifespans, ticket spikes, and projects budgets
+// Predictive Procurement & CapEx Forecaster (Module 2) - ES Module Version
 
 const DEFAULT_LIFESPANS = {
   "Laptop": 36,        // 36 months EOL standard
@@ -65,7 +64,7 @@ function analyzeTicketSpikesByModel(tickets, assets, referenceDateStr = "2026-06
     
     let spikePercent = 0;
     if (q1 === 0 && q2 > 0) {
-      spikePercent = q2 * 100; // infinite spike, represented as flat percentage
+      spikePercent = q2 * 100;
     } else if (q1 > 0) {
       spikePercent = ((q2 - q1) / q1) * 100;
     }
@@ -96,7 +95,7 @@ function generateCapExForecast(tickets, assets, customLifespans = {}, referenceD
   for (let i = 0; i < 12; i++) {
     const date = new Date(refDate);
     date.setMonth(date.getMonth() + i);
-    const monthKey = date.toLocaleString('default', { month: 'short', year: '2-digit' }); // e.g. "Jun 26"
+    const monthKey = date.toLocaleString('default', { month: 'short', year: '2-digit' });
     budgetMonths.push(monthKey);
     monthlyCostMap[monthKey] = 0;
   }
@@ -109,10 +108,8 @@ function generateCapExForecast(tickets, assets, customLifespans = {}, referenceD
     const lifespanLimit = lifespans[asset.category] || 36;
     const monthsRemaining = lifespanLimit - age;
     
-    // Check ticket spike for this model
     const spikeData = ticketSpikes[asset.model] || { hasSpike: false, spikePercent: 0 };
     
-    // Determine condition based on age and spikes
     let status = "Healthy";
     let replaceAction = false;
     
@@ -120,12 +117,10 @@ function generateCapExForecast(tickets, assets, customLifespans = {}, referenceD
       status = "EOL Passed";
       replaceAction = true;
     } else if (monthsRemaining <= 3) {
-      // Reaching EOL next quarter
       status = "EOL Pending (Next Quarter)";
       replaceAction = true;
     }
     
-    // If laptop reaching 36 months (or older than 33 months) AND average support tickets spike by 30%
     const isAssetLaptopReachingEOL = asset.category === "Laptop" && age >= 33;
     if ((isAssetLaptopReachingEOL || status.includes("EOL")) && spikeData.hasSpike) {
       status = "Urgent Replacement (Ticket Spike)";
@@ -141,8 +136,6 @@ function generateCapExForecast(tickets, assets, customLifespans = {}, referenceD
     }
     
     if (replaceAction) {
-      // Calculate which month the replacement occurs
-      // If EOL passed or urgent spike, replacement is scheduled for the first month (current month)
       let replacementMonthIndex = 0;
       if (monthsRemaining > 0 && status !== "Urgent Replacement (Ticket Spike)") {
         replacementMonthIndex = Math.min(monthsRemaining, 11);
@@ -166,7 +159,6 @@ function generateCapExForecast(tickets, assets, customLifespans = {}, referenceD
     }
   });
   
-  // Format monthly budget values for charts
   const forecastData = budgetMonths.map(month => ({
     month,
     cost: monthlyCostMap[month]
@@ -175,7 +167,7 @@ function generateCapExForecast(tickets, assets, customLifespans = {}, referenceD
   const totalForecastedCapEx = Object.values(monthlyCostMap).reduce((sum, val) => sum + val, 0);
   
   return {
-    forecastData, // array of { month, cost }
+    forecastData,
     totalForecastedCapEx,
     replacementsList,
     urgentReplacements,
@@ -183,10 +175,8 @@ function generateCapExForecast(tickets, assets, customLifespans = {}, referenceD
   };
 }
 
-if (typeof module !== "undefined" && module.exports) {
-  module.exports = {
-    getAssetAgeInMonths,
-    analyzeTicketSpikesByModel,
-    generateCapExForecast
-  };
-}
+export {
+  getAssetAgeInMonths,
+  analyzeTicketSpikesByModel,
+  generateCapExForecast
+};

@@ -1,7 +1,5 @@
-// Intelligent Ticket Dispatcher (Resource Optimizer) (Module 3)
-// Routes tickets based on semantic content matching, resolution speed, and workload.
+// Intelligent Ticket Dispatcher (Resource Optimizer) (Module 3) - ES Module Version
 
-// Keywords mapping to identify category from ticket title & description
 const CATEGORY_KEYWORDS = {
   Database: ["sql", "postgres", "db", "query", "replication", "lag", "index", "oracle", "mysql", "aurora", "latency", "slow query", "database"],
   Networking: ["switch", "router", "wifi", "network", "ping", "port", "vlan", "dhcp", "dns", "gateway", "cisco", "connection", "offline"],
@@ -16,13 +14,12 @@ const CATEGORY_KEYWORDS = {
 function classifyTicketCategory(subject = "", description = "") {
   const text = `${subject} ${description}`.toLowerCase();
   
-  let bestCategory = "Software"; // Default fallback
+  let bestCategory = "Software";
   let maxMatches = 0;
   
   Object.keys(CATEGORY_KEYWORDS).forEach(category => {
     let matches = 0;
     CATEGORY_KEYWORDS[category].forEach(keyword => {
-      // Count instances of keyword
       const regex = new RegExp("\\b" + keyword + "\\b", "gi");
       const count = (text.match(regex) || []).length;
       matches += count;
@@ -39,13 +36,6 @@ function classifyTicketCategory(subject = "", description = "") {
 
 /**
  * Calculates a recommendation score for an engineer for a specific ticket category.
- * High score is better.
- * Formula:
- *  Base Score = 100
- *  Speed Factor = - (avgHours * 10) (faster is better)
- *  Escalation Penalty = - (escalationRate * 100) (fewer escalations is better)
- *  Workload Penalty = - (activeLoad * 15) (lower workload is better)
- *  Specialty Bonus = +15 (if category matches engineer specialty)
  */
 function scoreEngineer(engineer, category) {
   const perf = engineer.historicalPerformance[category] || { avgHours: 5, escalationRate: 0.1 };
@@ -85,7 +75,6 @@ function getDispatcherRecommendations(ticket, engineers) {
   const recommendations = engineers.map(eng => {
     const scored = scoreEngineer(eng, category);
     
-    // Construct recommendation reason
     let reason = "";
     if (eng.specialty === category) {
       reason += `Specialist in ${category}. `;
@@ -103,7 +92,6 @@ function getDispatcherRecommendations(ticket, engineers) {
     };
   });
   
-  // Sort recommendations descending by total score
   recommendations.sort((a, b) => b.scores.total - a.scores.total);
   
   return {
@@ -112,10 +100,8 @@ function getDispatcherRecommendations(ticket, engineers) {
   };
 }
 
-if (typeof module !== "undefined" && module.exports) {
-  module.exports = {
-    classifyTicketCategory,
-    scoreEngineer,
-    getDispatcherRecommendations
-  };
-}
+export {
+  classifyTicketCategory,
+  scoreEngineer,
+  getDispatcherRecommendations
+};

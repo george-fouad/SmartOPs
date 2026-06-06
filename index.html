@@ -7,7 +7,7 @@
   <meta name="description" content="Integrate operations data across Freshdesk, Zoho Books, and Slack. Detect SLA breaches, forecast IT asset budgets, and dispatch tickets intelligently.">
   
   <!-- Tailwind is avoided as per core instructions. Using Vanilla CSS custom styles -->
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="/src/style.css">
   
   <!-- Google Fonts & Chart.js for visualizations -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -533,11 +533,7 @@
   </div>
 
   <!-- Application Logic Scripts -->
-  <script src="mockData.js"></script>
-  <script src="slaMonitor.js"></script>
-  <script src="procurement.js"></script>
-  <script src="dispatcher.js"></script>
-  <script src="app.js"></script>
+  <script type="module" src="/src/main.js"></script>
 
 </body>
 </html>

@@ -1,6 +1,10 @@
-// Main Orchestration Controller for SmartOps Application
+// Main Orchestration Controller for SmartOps Application (ES Modules version)
+import { MOCK_TICKETS, MOCK_ASSETS, MOCK_CONTRACTS, MOCK_ENGINEERS, getRelativeDate } from './mockData.js';
+import { analyzeTicketSla, runNightlySlaSync } from './slaMonitor.js';
+import { generateCapExForecast } from './procurement.js';
+import { classifyTicketCategory, getDispatcherRecommendations } from './dispatcher.js';
 
-// Local state variables populated from mockData.js
+// Local state variables populated from mockData
 let state = {
   tickets: [],
   assets: [],
@@ -144,11 +148,9 @@ function switchTab(tabId) {
  * Updates KPI metrics displayed in top header cards
  */
 function updateKpiMetrics() {
-  // Active Tickets (Open status)
   const activeCount = state.tickets.filter(t => t.status === "Open").length;
   document.getElementById("kpi-active-tickets").innerText = activeCount;
   
-  // SLA Breach Rate
   const resolvedCount = state.tickets.filter(t => t.status === "Resolved").length;
   const breachCount = state.anomalies.length;
   const breachRate = resolvedCount > 0 ? Math.round((breachCount / resolvedCount) * 100) : 0;
@@ -156,11 +158,9 @@ function updateKpiMetrics() {
   document.getElementById("kpi-sla-breach-rate").innerText = `${breachRate}%`;
   document.getElementById("kpi-sla-breach-count").innerText = breachCount;
   
-  // Forecasted CapEx (Rolling 12M)
   const forecast = generateCapExForecast(state.tickets, state.assets, state.lifespans);
   document.getElementById("kpi-forecasted-capex").innerText = `$${forecast.totalForecastedCapEx.toLocaleString()}`;
   
-  // Average Engineer Load
   const totalLoad = state.engineers.reduce((sum, eng) => sum + eng.activeLoad, 0);
   const avgLoad = state.engineers.length > 0 ? (totalLoad / state.engineers.length).toFixed(1) : "0.0";
   document.getElementById("kpi-engineer-load").innerText = avgLoad;
@@ -173,7 +173,6 @@ function renderDashboardAnomalies() {
   const container = document.getElementById("dashboard-anomalies-list");
   container.innerHTML = "";
   
-  // Fetch SLA Breaches
   state.anomalies.forEach(anomaly => {
     const item = document.createElement("div");
     item.className = "alert-item danger";
@@ -191,7 +190,6 @@ function renderDashboardAnomalies() {
     container.appendChild(item);
   });
   
-  // Check for hardware ticket spikes
   const forecast = generateCapExForecast(state.tickets, state.assets, state.lifespans);
   Object.keys(forecast.ticketSpikesByModel).forEach(model => {
     const spike = forecast.ticketSpikesByModel[model];
@@ -323,10 +321,8 @@ function triggerNightlyAudit() {
     const results = runNightlySlaSync(state.tickets, state.assets, state.contracts);
     let logIndex = 0;
     
-    // Save anomalies in state
     state.anomalies = results.anomalies;
     
-    // Disable execution button during simulation run
     const btn = document.getElementById("btn-run-audit");
     btn.disabled = true;
     
@@ -350,7 +346,6 @@ function triggerNightlyAudit() {
         consoleEl.appendChild(div);
         consoleEl.scrollTop = consoleEl.scrollHeight;
         
-        // Look for breach to emit simulated slack message
         if (line.includes("SLA Breach Detected")) {
           const breachMatch = results.logs[logIndex].match(/Resolved in ([\d\.]+) hrs/);
           const hours = breachMatch ? breachMatch[1] : "?";
@@ -361,7 +356,6 @@ function triggerNightlyAudit() {
         setTimeout(printLine, 100);
       } else {
         btn.disabled = false;
-        // Refresh visuals
         updateKpiMetrics();
         renderDashboardAnomalies();
         renderSlaAuditTable();
@@ -386,7 +380,6 @@ function renderAssetLifecycleTable() {
     const age = getAssetAgeInMonths(asset);
     const lifespanLimit = state.lifespans[asset.category] || 36;
     
-    // Find if EOL
     let forecastStatusBadge = "";
     const remaining = lifespanLimit - age;
     const modelSpikes = forecast.ticketSpikesByModel[asset.model] || { spikePercent: 0, hasSpike: false };
@@ -423,9 +416,8 @@ function renderAssetLifecycleTable() {
 function updateLifespanSettings() {
   state.lifespans.Laptop = parseInt(document.getElementById("input-lifespan-laptop").value) || 36;
   state.lifespans.Server = parseInt(document.getElementById("input-lifespan-server").value) || 60;
-  state.lifespans."Network Switch" = parseInt(document.getElementById("input-lifespan-switch").value) || 60;
+  state.lifespans["Network Switch"] = parseInt(document.getElementById("input-lifespan-switch").value) || 60;
   
-  // Refresh views
   renderAssetLifecycleTable();
   updateKpiMetrics();
   renderDashboardAnomalies();
@@ -436,7 +428,10 @@ function updateLifespanSettings() {
  * Module 2: Simulate ticket spike on Laptops
  */
 function triggerLaptopTicketSpike() {
-  // Add multiple laptop support tickets targeting ThinkPad Gen 2 laptops to Q2 (last 3 months)
+  if (state.isLiveMode) {
+    alert("Simulation is disabled while running in Live CRM Mode. Ingest new tickets directly inside your Freshdesk instance, and they will load automatically on sync/refresh.");
+    return;
+  }
   const laptopAssets = state.assets.filter(a => a.model === "ThinkPad T14 Gen 2");
   
   const subjects = [
@@ -448,7 +443,6 @@ function triggerLaptopTicketSpike() {
     "Wifi adapter drops connection repeatedly"
   ];
   
-  // Insert 6 new resolved tickets in the recent quarter (May/June)
   for (let i = 0; i < 6; i++) {
     const asset = laptopAssets[i % laptopAssets.length];
     const newId = `FD-SPK-${i + 101}`;
@@ -467,7 +461,6 @@ function triggerLaptopTicketSpike() {
     });
   }
   
-  // Refresh UI
   renderAssetLifecycleTable();
   updateKpiMetrics();
   renderDashboardAnomalies();
@@ -523,7 +516,6 @@ function selectDispatcherTicket(ticketId) {
   const ticket = state.tickets.find(t => t.id === ticketId);
   if (!ticket) return;
   
-  // Show details panel
   const detailsEl = document.getElementById("dispatcher-selected-ticket-details");
   detailsEl.innerHTML = `
     <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-primary);">${ticket.subject}</h3>
@@ -535,16 +527,13 @@ function selectDispatcherTicket(ticketId) {
     </div>
   `;
   
-  // Get recommendations
   const result = getDispatcherRecommendations(ticket, state.engineers);
   
-  // Render Category Badge
   const catBadge = document.getElementById("dispatcher-selected-category-badge");
   catBadge.style.display = "inline-block";
   catBadge.innerText = result.classifiedCategory.toUpperCase();
   catBadge.className = `badge ${result.classifiedCategory.toLowerCase() === 'database' ? 'critical' : result.classifiedCategory.toLowerCase() === 'networking' ? 'high' : 'medium'}`;
   
-  // Render Candidates list
   const candList = document.getElementById("dispatcher-candidates-list");
   candList.innerHTML = "";
   
@@ -592,12 +581,10 @@ function dispatchTicketToEngineer(ticketId, engineerId) {
   
   if (!ticket || !engineer) return;
   
-  // Update state
   ticket.status = "In Progress";
   ticket.engineerId = engineer.id;
   engineer.activeLoad++;
   
-  // Clear dispatcher details selection
   state.selectedTicketId = null;
   document.getElementById("dispatcher-selected-ticket-details").innerHTML = `
     <p style="color: var(--text-secondary); text-align: center; padding: 2rem 0;">Select a ticket from the queue to view engineering recommendations.</p>
@@ -605,14 +592,12 @@ function dispatchTicketToEngineer(ticketId, engineerId) {
   document.getElementById("dispatcher-recommendations-list-container").style.display = "none";
   document.getElementById("dispatcher-selected-category-badge").style.display = "none";
   
-  // Refresh UI
   renderDispatcherInbox();
   updateKpiMetrics();
   renderSlaAuditTable();
   renderAssetLifecycleTable();
   updateCharts();
   
-  // Dispatch Simulated Slack notify
   showSlackAlert("TICKET DISPATCH", `Ticket ${ticket.id} ("${ticket.subject}") dispatched dynamically to ${engineer.name}. Reason: ${engineer.specialty} specialist, Load: ${engineer.activeLoad}.`);
 }
 
@@ -629,7 +614,6 @@ function handleCustomTicketSubmit(event) {
   const category = classifyTicketCategory(subject, desc);
   const newId = `FD-${state.tickets.length + 501}`;
   
-  // Randomly assign to a covered asset based on category
   const matches = state.assets.filter(a => a.category === (category === "Database" ? "Server" : category === "Networking" ? "Network Switch" : "Laptop"));
   const assetTag = matches.length > 0 ? matches[Math.floor(Math.random() * matches.length)].tag : null;
   
@@ -648,14 +632,11 @@ function handleCustomTicketSubmit(event) {
   
   state.tickets.push(newTicket);
   
-  // Reset form
   document.getElementById("form-custom-ticket").reset();
   
-  // Update UI
   renderDispatcherInbox();
   updateKpiMetrics();
   
-  // Auto select the new ticket
   selectDispatcherTicket(newId);
   
   showSlackAlert("TICKET INGESTION", `New active ticket ingested from Freshdesk API: ${newId} (${subject}). Semantic analyzer mapped this to ${category}.`);
@@ -679,9 +660,8 @@ function simulateNewTicket() {
   
   const randomPick = subjects[Math.floor(Math.random() * subjects.length)];
   const severities = ["Critical", "High", "Medium", "Low"];
-  const severity = severities[Math.floor(Math.random() * 3)]; // Bias away from Low
+  const severity = severities[Math.floor(Math.random() * 3)];
   
-  // Random asset tag
   const matches = state.assets.filter(a => a.category === (randomPick.cat === "Database" ? "Server" : randomPick.cat === "Networking" ? "Network Switch" : "Laptop"));
   const assetTag = matches.length > 0 ? matches[Math.floor(Math.random() * matches.length)].tag : null;
   
@@ -712,8 +692,6 @@ function simulateSlaBreachTicket() {
     alert("Simulation is disabled while running in Live CRM Mode.");
     return;
   }
-  // We need to add a resolved ticket that breaches Zoho SLA
-  // E.g., Server asset going down (SLA target is 4 hours) resolved in 8.5 hours
   const servers = state.assets.filter(a => a.category === "Server");
   const asset = servers[Math.floor(Math.random() * servers.length)];
   
@@ -722,7 +700,7 @@ function simulateSlaBreachTicket() {
   const createdDate = new Date();
   createdDate.setHours(createdDate.getHours() - 10);
   const resolvedDate = new Date();
-  resolvedDate.setHours(resolvedDate.getHours() - 1.5); // 8.5 hours duration
+  resolvedDate.setHours(resolvedDate.getHours() - 1.5);
   
   const newTicket = {
     id: newId,
@@ -740,7 +718,6 @@ function simulateSlaBreachTicket() {
   
   state.tickets.push(newTicket);
   
-  // Auditing will automatically grab this on next sync, or let's push to anomalies list to show immediately
   const analysis = analyzeTicketSla(newTicket, state.assets, state.contracts);
   if (analysis.breach) {
     state.anomalies.push({
@@ -765,7 +742,6 @@ function simulateSlaBreachTicket() {
 }
 
 function showSlackAlert(service, message) {
-  // We can push to the sync logs terminal window if active
   const consoleEl = document.getElementById("sla-terminal-console");
   if (consoleEl) {
     const div = document.createElement("div");
@@ -775,7 +751,6 @@ function showSlackAlert(service, message) {
     consoleEl.scrollTop = consoleEl.scrollHeight;
   }
   
-  // Real Slack integration relay via express server
   if (state.slackWebhookUrl) {
     fetch("/api/slack/notify", {
       method: "POST",
@@ -864,8 +839,6 @@ function initCharts() {
   };
   
   state.charts.dashboard = new Chart(ctxOverview, JSON.parse(JSON.stringify(chartConfig)));
-  
-  // Set background color overrides since JSON parse drops function parameters
   state.charts.dashboard.data.datasets[0].backgroundColor = getGradientColor;
   state.charts.dashboard.update();
   
@@ -972,20 +945,17 @@ async function verifyFreshdeskConnection(domain, apiKey, showAlert) {
     const data = await response.json();
 
     if (response.ok) {
-      // Success! Set Live Mode
       state.isLiveMode = true;
       state.freshdeskDomain = domain;
       state.freshdeskApiKey = apiKey;
       state.tickets = data; 
 
-      // Cache settings
       sessionStorage.setItem("smartops_fd_domain", domain);
       sessionStorage.setItem("smartops_fd_key", apiKey);
 
       updateFreshdeskUIStatus(true);
       updateAppModeUI(true);
 
-      // Refresh visuals
       updateKpiMetrics();
       renderSlaAuditTable();
       renderAssetLifecycleTable();
@@ -1132,3 +1102,17 @@ function updateSlackUIStatus(isConnected) {
   }
   lucide.createIcons();
 }
+
+// Bind interactive handlers to global window namespace so index.html inline click events work
+window.switchTab = switchTab;
+window.resetMockData = resetMockData;
+window.simulateNewTicket = simulateNewTicket;
+window.triggerLaptopTicketSpike = triggerLaptopTicketSpike;
+window.simulateSlaBreachTicket = simulateSlaBreachTicket;
+window.saveFreshdeskIntegration = saveFreshdeskIntegration;
+window.saveSlackIntegration = saveSlackIntegration;
+window.triggerNightlyAudit = triggerNightlyAudit;
+window.updateLifespanSettings = updateLifespanSettings;
+window.handleCustomTicketSubmit = handleCustomTicketSubmit;
+window.dispatchTicketToEngineer = dispatchTicketToEngineer;
+window.selectDispatcherTicket = selectDispatcherTicket;
