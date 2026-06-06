@@ -72,6 +72,7 @@
         <p id="page-subtitle-display">Real-time indicators across connected SaaS pipelines.</p>
       </div>
       <div class="header-actions">
+        <span class="badge low" id="app-mode-badge" style="font-weight: 600; padding: 0.5rem 0.8rem; letter-spacing: 0.5px;">SIMULATION MODE</span>
         <button class="btn-secondary" onclick="resetMockData()" id="btn-reset-data">
           <i data-lucide="refresh-cw"></i> Reset Simulation Data
         </button>
@@ -448,21 +449,24 @@
                 <i data-lucide="ticket" style="color: var(--color-primary);"></i>
                 <span>Freshdesk Support API</span>
               </div>
-              <div class="conn-status connected" id="status-freshdesk">
-                <div class="status-indicator"></div>
-                <span>Connected</span>
+              <div class="conn-status disconnected" id="status-freshdesk">
+                <div class="status-indicator" style="background-color: var(--color-danger); box-shadow: 0 0 10px var(--color-danger);"></div>
+                <span>Disconnected</span>
               </div>
             </div>
             <p style="font-size: 0.825rem; color: var(--text-secondary);">Syncs incident logs, resolution times, severity configurations, and engineer schedules.</p>
             <div class="conn-form">
               <div class="form-group">
                 <label for="input-fd-domain">Freshdesk Domain URL</label>
-                <input type="text" id="input-fd-domain" value="https://smartops.freshdesk.com" disabled>
+                <input type="text" id="input-fd-domain" placeholder="e.g. https://yourdomain.freshdesk.com">
               </div>
               <div class="form-group">
                 <label for="input-fd-key">API Credentials Key</label>
-                <input type="password" id="input-fd-key" value="••••••••••••••••••••••••" disabled>
+                <input type="password" id="input-fd-key" placeholder="Enter Freshdesk API Key">
               </div>
+              <button class="btn-primary" onclick="saveFreshdeskIntegration()" id="btn-save-freshdesk" style="margin-top: 0.5rem; justify-content: center;" type="button">
+                <i data-lucide="save"></i> Save & Test Connection
+              </button>
             </div>
           </div>
 
@@ -498,21 +502,24 @@
                 <i data-lucide="slack" style="color: var(--color-warning);"></i>
                 <span>Slack Alerts Hook</span>
               </div>
-              <div class="conn-status connected" id="status-slack">
-                <div class="status-indicator"></div>
-                <span>Connected</span>
+              <div class="conn-status disconnected" id="status-slack">
+                <div class="status-indicator" style="background-color: var(--color-danger); box-shadow: 0 0 10px var(--color-danger);"></div>
+                <span>Disconnected</span>
               </div>
             </div>
             <p style="font-size: 0.825rem; color: var(--text-secondary);">Dispatches instant channels notifications for critical ticket assignments or detected SLA breach anomalies.</p>
             <div class="conn-form">
               <div class="form-group">
                 <label for="input-slack-webhook">Slack Webhook URL</label>
-                <input type="text" id="input-slack-webhook" value="https://hooks.slack.com/services/T00/B00/X831" disabled>
+                <input type="text" id="input-slack-webhook" placeholder="e.g. https://hooks.slack.com/services/...">
               </div>
               <div class="form-group">
                 <label for="input-slack-channel">Notification Channel</label>
-                <input type="text" id="input-slack-channel" value="#ops-alerts" disabled>
+                <input type="text" id="input-slack-channel" value="#ops-alerts">
               </div>
+              <button class="btn-primary" onclick="saveSlackIntegration()" id="btn-save-slack" style="margin-top: 0.5rem; justify-content: center;" type="button">
+                <i data-lucide="save"></i> Save & Test Webhook
+              </button>
             </div>
           </div>
         </div>

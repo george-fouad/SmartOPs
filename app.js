@@ -17,7 +17,12 @@ let state = {
   charts: {
     dashboard: null,
     procurement: null
-  }
+  },
+  isLiveMode: false,
+  freshdeskDomain: "",
+  freshdeskApiKey: "",
+  slackWebhookUrl: "",
+  slackChannel: ""
 };
 
 // Page Title Mapping
@@ -33,6 +38,9 @@ const PAGE_TITLES = {
 window.onload = function() {
   resetMockState();
   lucide.createIcons();
+  
+  // Load saved configurations from sessionStorage if any
+  loadSavedIntegrations();
   
   // Render initial dashboards
   updateKpiMetrics();
@@ -271,58 +279,98 @@ function triggerNightlyAudit() {
   const consoleEl = document.getElementById("sla-terminal-console");
   consoleEl.innerHTML = "";
   
-  const results = runNightlySlaSync(state.tickets, state.assets, state.contracts);
-  let logIndex = 0;
+  const timestamp = new Date().toISOString();
   
-  // Save anomalies in state
-  state.anomalies = results.anomalies;
-  
-  // Disable execution button during simulation run
-  const btn = document.getElementById("btn-run-audit");
-  btn.disabled = true;
-  
-  function printLine() {
-    if (logIndex < results.logs.length) {
-      const line = results.logs[logIndex];
-      const div = document.createElement("div");
-      div.className = "terminal-line";
-      
-      if (line.includes("WARNING")) {
-        div.className += " warn";
-      } else if (line.includes("ALERT")) {
-        div.className += " err";
-        // Trigger simulated Slack popup alert logs
-        const match = line.match(/Auditing Ticket (FD-\d+)/);
-      } else if (line.includes("completed")) {
-        div.className += " success";
-      } else if (line.includes("Starting") || line.includes("Querying")) {
-        div.className += " system";
+  if (state.isLiveMode) {
+    const btn = document.getElementById("btn-run-audit");
+    btn.disabled = true;
+    
+    const div = document.createElement("div");
+    div.className = "terminal-line system";
+    div.innerText = `[${newDateString()}] Starting Live SLA Sync: Crawling tickets from Freshdesk REST API...`;
+    consoleEl.appendChild(div);
+    
+    // Fetch latest tickets again from API
+    verifyFreshdeskConnection(state.freshdeskDomain, state.freshdeskApiKey, false)
+      .then(success => {
+        btn.disabled = false;
+        if (success) {
+          const results = runNightlySlaSync(state.tickets, state.assets, state.contracts);
+          state.anomalies = results.anomalies;
+          
+          results.logs.forEach(log => {
+            const div2 = document.createElement("div");
+            div2.className = "terminal-line";
+            if (log.includes("WARNING")) div2.className += " warn";
+            else if (log.includes("ALERT")) div2.className += " err";
+            else if (log.includes("completed")) div2.className += " success";
+            div2.innerText = log;
+            consoleEl.appendChild(div2);
+          });
+          
+          updateKpiMetrics();
+          renderDashboardAnomalies();
+          renderSlaAuditTable();
+          updateCharts();
+        } else {
+          const div2 = document.createElement("div");
+          div2.className = "terminal-line err";
+          div2.innerText = `[${newDateString()}] Error during live sync: Connection to API proxy lost.`;
+          consoleEl.appendChild(div2);
+        }
+      });
+  } else {
+    const results = runNightlySlaSync(state.tickets, state.assets, state.contracts);
+    let logIndex = 0;
+    
+    // Save anomalies in state
+    state.anomalies = results.anomalies;
+    
+    // Disable execution button during simulation run
+    const btn = document.getElementById("btn-run-audit");
+    btn.disabled = true;
+    
+    function printLine() {
+      if (logIndex < results.logs.length) {
+        const line = results.logs[logIndex];
+        const div = document.createElement("div");
+        div.className = "terminal-line";
+        
+        if (line.includes("WARNING")) {
+          div.className += " warn";
+        } else if (line.includes("ALERT")) {
+          div.className += " err";
+        } else if (line.includes("completed")) {
+          div.className += " success";
+        } else if (line.includes("Starting") || line.includes("Querying")) {
+          div.className += " system";
+        }
+        
+        div.innerText = line;
+        consoleEl.appendChild(div);
+        consoleEl.scrollTop = consoleEl.scrollHeight;
+        
+        // Look for breach to emit simulated slack message
+        if (line.includes("SLA Breach Detected")) {
+          const breachMatch = results.logs[logIndex].match(/Resolved in ([\d\.]+) hrs/);
+          const hours = breachMatch ? breachMatch[1] : "?";
+          showSlackAlert("SLA MONITOR", `Anomaly alert dispatched: SLA contract breached. Ticket took ${hours} hrs.`);
+        }
+        
+        logIndex++;
+        setTimeout(printLine, 100);
+      } else {
+        btn.disabled = false;
+        // Refresh visuals
+        updateKpiMetrics();
+        renderDashboardAnomalies();
+        renderSlaAuditTable();
+        updateCharts();
       }
-      
-      div.innerText = line;
-      consoleEl.appendChild(div);
-      consoleEl.scrollTop = consoleEl.scrollHeight;
-      
-      // Look for breach to emit simulated slack message
-      if (line.includes("SLA Breach Detected")) {
-        const breachMatch = results.logs[logIndex].match(/Resolved in ([\d\.]+) hrs/);
-        const hours = breachMatch ? breachMatch[1] : "?";
-        showSlackAlert("SLA MONITOR", `Anomaly alert dispatched: SLA contract breached. Ticket took ${hours} hrs.`);
-      }
-      
-      logIndex++;
-      setTimeout(printLine, 100);
-    } else {
-      btn.disabled = false;
-      // Refresh visuals
-      updateKpiMetrics();
-      renderDashboardAnomalies();
-      renderSlaAuditTable();
-      updateCharts();
     }
+    
+    printLine();
   }
-  
-  printLine();
 }
 
 /**
@@ -617,6 +665,10 @@ function handleCustomTicketSubmit(event) {
  * Ingest dynamic random ticket
  */
 function simulateNewTicket() {
+  if (state.isLiveMode) {
+    alert("Simulation is disabled while running in Live CRM Mode. Ingest new tickets directly inside your Freshdesk instance, and they will load automatically on sync/refresh.");
+    return;
+  }
   const subjects = [
     { sub: "Database connection pools exhausted", desc: "HikariPool-1 is reporting connection timeouts. High traffic volume is locking active db rows.", cat: "Database" },
     { sub: "Slow page response on dashboard API gateway", desc: "API response latency spiked above 1200ms. CPU usage on container cluster at 94%.", cat: "Software" },
@@ -656,6 +708,10 @@ function simulateNewTicket() {
 }
 
 function simulateSlaBreachTicket() {
+  if (state.isLiveMode) {
+    alert("Simulation is disabled while running in Live CRM Mode.");
+    return;
+  }
   // We need to add a resolved ticket that breaches Zoho SLA
   // E.g., Server asset going down (SLA target is 4 hours) resolved in 8.5 hours
   const servers = state.assets.filter(a => a.category === "Server");
@@ -708,18 +764,28 @@ function simulateSlaBreachTicket() {
   showSlackAlert("SLA ANOMALY", `Critical SLA Breach Ingested! Ticket ${newId} resolved in ${analysis.actualHours} hrs (SLA: ${analysis.targetHours} hrs). Exceeded contract by ${analysis.deltaPercent}%.`);
 }
 
-/**
- * Simulates Slack dispatch popups
- */
 function showSlackAlert(service, message) {
   // We can push to the sync logs terminal window if active
   const consoleEl = document.getElementById("sla-terminal-console");
   if (consoleEl) {
     const div = document.createElement("div");
     div.className = "terminal-line success";
-    div.innerText = `[${newDateString()}] [SLACK NOTIFY -> #ops-alerts] ${service}: ${message}`;
+    div.innerText = `[${newDateString()}] [SLACK NOTIFY -> ${state.slackChannel || '#ops-alerts'}] ${service}: ${message}`;
     consoleEl.appendChild(div);
     consoleEl.scrollTop = consoleEl.scrollHeight;
+  }
+  
+  // Real Slack integration relay via express server
+  if (state.slackWebhookUrl) {
+    fetch("/api/slack/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        webhookUrl: state.slackWebhookUrl,
+        service,
+        message
+      })
+    }).catch(err => console.error("Slack webhook send failed:", err));
   }
 }
 
@@ -834,4 +900,225 @@ function updateCharts() {
     state.charts.procurement.data.datasets[0].data = values;
     state.charts.procurement.update();
   }
+}
+
+/**
+ * Loads integrations from sessionStorage on startup
+ */
+function loadSavedIntegrations() {
+  const fdDomain = sessionStorage.getItem("smartops_fd_domain");
+  const fdKey = sessionStorage.getItem("smartops_fd_key");
+  const slackWebhook = sessionStorage.getItem("smartops_slack_webhook");
+  const slackChan = sessionStorage.getItem("smartops_slack_channel");
+
+  if (fdDomain && fdKey) {
+    document.getElementById("input-fd-domain").value = fdDomain;
+    document.getElementById("input-fd-key").value = fdKey;
+    state.freshdeskDomain = fdDomain;
+    state.freshdeskApiKey = fdKey;
+    verifyFreshdeskConnection(fdDomain, fdKey, false);
+  }
+
+  if (slackWebhook && slackChan) {
+    document.getElementById("input-slack-webhook").value = slackWebhook;
+    document.getElementById("input-slack-channel").value = slackChan;
+    state.slackWebhookUrl = slackWebhook;
+    state.slackChannel = slackChan;
+    updateSlackUIStatus(true);
+  }
+}
+
+/**
+ * Saves and verifies Freshdesk API
+ */
+async function saveFreshdeskIntegration() {
+  const domain = document.getElementById("input-fd-domain").value.trim();
+  const apiKey = document.getElementById("input-fd-key").value.trim();
+
+  if (!domain || !apiKey) {
+    alert("Please fill in both the Freshdesk Domain and API Key.");
+    return;
+  }
+
+  const btn = document.getElementById("btn-save-freshdesk");
+  btn.innerHTML = `<i data-lucide="loader" style="width: 14px; height: 14px;" class="animate-spin"></i> Testing Connection...`;
+  btn.disabled = true;
+  lucide.createIcons();
+
+  const success = await verifyFreshdeskConnection(domain, apiKey, true);
+
+  btn.innerHTML = `<i data-lucide="save" style="width: 14px; height: 14px;"></i> Save & Test Connection`;
+  btn.disabled = false;
+  lucide.createIcons();
+}
+
+/**
+ * Verifies credentials by querying server proxy endpoint
+ */
+async function verifyFreshdeskConnection(domain, apiKey, showAlert) {
+  try {
+    const response = await fetch("/api/freshdesk/tickets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ domain, apiKey })
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      // Success! Set Live Mode
+      state.isLiveMode = true;
+      state.freshdeskDomain = domain;
+      state.freshdeskApiKey = apiKey;
+      state.tickets = data; 
+
+      // Cache settings
+      sessionStorage.setItem("smartops_fd_domain", domain);
+      sessionStorage.setItem("smartops_fd_key", apiKey);
+
+      updateFreshdeskUIStatus(true);
+      updateAppModeUI(true);
+
+      // Refresh visuals
+      updateKpiMetrics();
+      renderSlaAuditTable();
+      renderAssetLifecycleTable();
+      renderDispatcherInbox();
+      renderDashboardAnomalies();
+      updateCharts();
+
+      if (showAlert) {
+        alert("Success! Connected to Freshdesk CRM and sync completed.");
+      }
+      
+      const consoleEl = document.getElementById("sla-terminal-console");
+      if (consoleEl) {
+        consoleEl.innerHTML += `<div class="terminal-line success">[SYSTEM] Successfully established live API sync pipe with Freshdesk.</div>`;
+      }
+      
+      showSlackAlert("INTEGRATIONS", "Live Freshdesk API bridge connected successfully.");
+      return true;
+    } else {
+      throw new Error(data.error || "Connection failed.");
+    }
+  } catch (err) {
+    console.error(err);
+    state.isLiveMode = false;
+    updateFreshdeskUIStatus(false);
+    updateAppModeUI(false);
+    
+    sessionStorage.removeItem("smartops_fd_domain");
+    sessionStorage.removeItem("smartops_fd_key");
+
+    if (showAlert) {
+      alert(`Connection Error: ${err.message}`);
+    }
+    return false;
+  }
+}
+
+function updateFreshdeskUIStatus(isConnected) {
+  const statusEl = document.getElementById("status-freshdesk");
+  if (!statusEl) return;
+  
+  if (isConnected) {
+    statusEl.className = "conn-status connected";
+    statusEl.innerHTML = `
+      <div class="status-indicator"></div>
+      <span>Connected</span>
+    `;
+  } else {
+    statusEl.className = "conn-status disconnected";
+    statusEl.innerHTML = `
+      <div class="status-indicator" style="background-color: var(--color-danger); box-shadow: 0 0 10px var(--color-danger);"></div>
+      <span>Disconnected</span>
+    `;
+  }
+  lucide.createIcons();
+}
+
+function updateAppModeUI(isLive) {
+  const badge = document.getElementById("app-mode-badge");
+  if (!badge) return;
+  
+  if (isLive) {
+    badge.className = "badge compliant";
+    badge.innerText = "LIVE CRM MODE";
+  } else {
+    badge.className = "badge low";
+    badge.innerText = "SIMULATION MODE";
+  }
+}
+
+/**
+ * Saves and tests Slack webhook integration
+ */
+async function saveSlackIntegration() {
+  const webhookUrl = document.getElementById("input-slack-webhook").value.trim();
+  const channel = document.getElementById("input-slack-channel").value.trim();
+
+  if (!webhookUrl || !channel) {
+    alert("Please fill in both Webhook URL and channel fields.");
+    return;
+  }
+
+  const btn = document.getElementById("btn-save-slack");
+  btn.innerHTML = `<i data-lucide="loader" style="width: 14px; height: 14px;" class="animate-spin"></i> Testing Webhook...`;
+  btn.disabled = true;
+  lucide.createIcons();
+
+  try {
+    const response = await fetch("/api/slack/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        webhookUrl,
+        service: "Integrations Check",
+        message: `Slack channel integration tested and verified for channel ${channel}.`
+      })
+    });
+
+    if (response.ok) {
+      state.slackWebhookUrl = webhookUrl;
+      state.slackChannel = channel;
+      
+      sessionStorage.setItem("smartops_slack_webhook", webhookUrl);
+      sessionStorage.setItem("smartops_slack_channel", channel);
+
+      updateSlackUIStatus(true);
+      alert("Success! Sent test message to Slack. Check your channel.");
+    } else {
+      throw new Error("Failed to send webhook request.");
+    }
+  } catch (err) {
+    console.error(err);
+    updateSlackUIStatus(false);
+    sessionStorage.removeItem("smartops_slack_webhook");
+    sessionStorage.removeItem("smartops_slack_channel");
+    alert(`Webhook Test Failed: ${err.message}`);
+  }
+
+  btn.innerHTML = `<i data-lucide="save" style="width: 14px; height: 14px;"></i> Save & Test Webhook`;
+  btn.disabled = false;
+  lucide.createIcons();
+}
+
+function updateSlackUIStatus(isConnected) {
+  const statusEl = document.getElementById("status-slack");
+  if (!statusEl) return;
+  
+  if (isConnected) {
+    statusEl.className = "conn-status connected";
+    statusEl.innerHTML = `
+      <div class="status-indicator"></div>
+      <span>Connected</span>
+    `;
+  } else {
+    statusEl.className = "conn-status disconnected";
+    statusEl.innerHTML = `
+      <div class="status-indicator" style="background-color: var(--color-danger); box-shadow: 0 0 10px var(--color-danger);"></div>
+      <span>Disconnected</span>
+    `;
+  }
+  lucide.createIcons();
 }
