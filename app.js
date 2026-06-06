@@ -956,6 +956,12 @@ async function saveFreshdeskIntegration() {
  * Verifies credentials by querying server proxy endpoint
  */
 async function verifyFreshdeskConnection(domain, apiKey, showAlert) {
+  if (window.location.protocol === "file:") {
+    if (showAlert) {
+      alert("Error: Live integrations require the backend proxy server to be running.\n\nYou are currently opening index.html directly as a local file (file://). Please start the server by running 'npm start' in your terminal and visit http://localhost:3000 in your browser.");
+    }
+    return false;
+  }
   try {
     const response = await fetch("/api/freshdesk/tickets", {
       method: "POST",
@@ -1054,6 +1060,10 @@ function updateAppModeUI(isLive) {
  * Saves and tests Slack webhook integration
  */
 async function saveSlackIntegration() {
+  if (window.location.protocol === "file:") {
+    alert("Error: Live integrations require the backend proxy server to be running.\n\nYou are currently opening index.html directly as a local file (file://). Please start the server by running 'npm start' in your terminal and visit http://localhost:3000 in your browser.");
+    return;
+  }
   const webhookUrl = document.getElementById("input-slack-webhook").value.trim();
   const channel = document.getElementById("input-slack-channel").value.trim();
 
