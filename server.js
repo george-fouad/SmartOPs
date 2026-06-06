@@ -171,10 +171,23 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Start listening
-app.listen(PORT, () => {
-  console.log(`===================================================`);
-  console.log(`🚀 SmartOps Local Server running at http://localhost:${PORT}`);
-  console.log(`📁 Serving frontend folder: ${__dirname}`);
-  console.log(`===================================================`);
-});
+// Start listening with port retry logic in case of EADDRINUSE
+function startServer(port) {
+  const server = app.listen(port, () => {
+    console.log(`===================================================`);
+    console.log(`🚀 SmartOps Local Server running at http://localhost:${port}`);
+    console.log(`📁 Serving frontend folder: ${__dirname}`);
+    console.log(`===================================================`);
+  });
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.warn(`⚠️  Port ${port} is already in use. Trying port ${port + 1}...`);
+      startServer(port + 1);
+    } else {
+      console.error(`[Server Error]`, err.message);
+    }
+  });
+}
+
+startServer(PORT);
